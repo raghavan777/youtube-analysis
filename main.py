@@ -1,5 +1,6 @@
 from googleapiclient.discovery import build
 import pandas as pd
+from database import save_channel_data, save_video_data
 
 API_KEY = "AIzaSyCLt6JRkDYwEmsLGEFq0FkaWc-MQonTFvk"
 
@@ -59,6 +60,7 @@ def get_channel_data(CHANNEL_ID):
         engagement = (likes + comments) / views if views>0 else 0
 
         data.append({
+            "video_id": v['id'],
             "title": v['snippet']['title'],
             "publishedAt": v['snippet']['publishedAt'],
             "views": views,
@@ -68,5 +70,9 @@ def get_channel_data(CHANNEL_ID):
         })
 
     df = pd.DataFrame(data)
+
+    # Save to SQLite Database
+    save_channel_data(CHANNEL_ID, channel_details)
+    save_video_data(CHANNEL_ID, df)
 
     return channel_details, df

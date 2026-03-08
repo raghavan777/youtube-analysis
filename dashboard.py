@@ -242,11 +242,14 @@ if mode == "Single Channel Analysis":
 
             # FILTERS
             st.sidebar.subheader("🎯 Refine Data")
+            search_query = st.sidebar.text_input("🔍 Search Video Title", placeholder="e.g. Streamlit", value="")
             min_views = st.sidebar.slider("Minimum Views", min_value=0, max_value=int(df['views'].max()), value=0)
             years = df['Year'].unique()
             selected_years = st.sidebar.multiselect("Filter by Year", years, default=years)
 
             filtered_df = df[(df["views"] >= min_views) & (df["Year"].isin(selected_years))].copy()
+            if search_query:
+                filtered_df = filtered_df[filtered_df["title"].str.contains(search_query, case=False, na=False)]
 
             if filtered_df.empty:
                 st.warning("No videos match the filters.", icon="🙈")
@@ -256,51 +259,53 @@ if mode == "Single Channel Analysis":
                 v_col1, v_col2 = st.columns(2)
                 
                 with v_col1:
-                    st.markdown("**Views Growth Pattern (Log Scale)**")
+                    st.markdown("**Views Growth Pattern**")
                     filtered_df_sorted = filtered_df.sort_values(by="Published Date")
                     
-                    # Prevent log scale errors by adding a tiny epsilon if views are 0
-                    filtered_df_sorted['views_log_safe'] = filtered_df_sorted['views'].apply(lambda x: x if x > 0 else 1)
-                    
-                    fig_trend = px.line(filtered_df_sorted, x="Published Date", y="views_log_safe", log_y=True, template=CHART_THEME, color_discrete_sequence=CHART_COLOR_SEQ)
+                    fig_trend = px.line(filtered_df_sorted, x="Published Date", y="views", template=CHART_THEME, color_discrete_sequence=['#00F2FE'], markers=True)
                     apply_transparent_bg(fig_trend)
-                    # Add gradient fill under line
-                    fig_trend.update_traces(fill='tozeroy', line=dict(width=3))
-                    fig_trend.update_yaxes(title_text="Views (Log Scale)")
+                    # Smoothed spline curve with filled area underneath
+                    fig_trend.update_traces(line_shape='spline', fill='tozeroy', fillcolor='rgba(0, 242, 254, 0.1)', line=dict(width=3))
+                    fig_trend.update_yaxes(title_text="Total Views")
                     st.plotly_chart(fig_trend, use_container_width=True)
 
                     st.markdown("**Engagement Density**")
-                    # Replace histogram with a 2D density heatmap
+                    # Use Inferno so 0-values map to dark background, blending perfectly
                     fig_heat = px.density_heatmap(
                         filtered_df, x="views", y="engagement", 
-                        nbinsx=20, nbinsy=20, 
-                        template=CHART_THEME, color_continuous_scale="Purpor"
+                        nbinsx=15, nbinsy=15, 
+                        template=CHART_THEME, color_continuous_scale="Inferno"
                     )
                     apply_transparent_bg(fig_heat)
+                    fig_heat.update_layout(xaxis_title="Views", yaxis_title="Engagement Rate")
                     st.plotly_chart(fig_heat, use_container_width=True)
 
                 with v_col2:
                     st.markdown("**Top 10 Performing Videos**")
-                    top10 = filtered_df.sort_values("views", ascending=False).head(10)
-                    # Add precise labels with text_auto
-                    fig_bar = px.bar(top10, x="views", y="title", orientation='h', text_auto='.2s', template=CHART_THEME, color_discrete_sequence=['#8E2DE2'])
+                    top10 = filtered_df.sort_values("views", ascending=False).head(10).copy()
+                    # Shorten titles to prevent chart squashing
+                    top10['Short Title'] = top10['title'].apply(lambda x: x[:35] + '...' if len(x) > 35 else x)
+                    
+                    fig_bar = px.bar(top10, x="views", y="Short Title", orientation='h', text_auto='.2s', template=CHART_THEME, color_discrete_sequence=['#4FACFE'])
                     apply_transparent_bg(fig_bar)
-                    fig_bar.update_layout(yaxis={'categoryorder':'total ascending'})
+                    fig_bar.update_layout(yaxis={'categoryorder':'total ascending'}, yaxis_title="")
                     st.plotly_chart(fig_bar, use_container_width=True)
 
                     st.markdown("**Interaction Breakdown**")
                     # Make scatter axes meaningful: views vs engagement
-                    # Cap sizes to prevent massive outliers from breaking the chart visuals
                     q95_likes = filtered_df['likes'].quantile(0.95) if not filtered_df.empty else 1000
                     filtered_df['likes_clamped'] = filtered_df['likes'].clip(upper=q95_likes)
                     
+                    # Use a punchy color scale like Sunsetdark
                     fig_scatter = px.scatter(
                         filtered_df, x="views", y="engagement", size="likes_clamped", 
-                        hover_data=["title", "likes", "comments"], color="comments", 
-                        template=CHART_THEME, color_continuous_scale="Agsunset"
+                        hover_data=["title", "likes", "comments"], color="engagement", 
+                        template=CHART_THEME, color_continuous_scale="Sunsetdark"
                     )
                     apply_transparent_bg(fig_scatter)
                     fig_scatter.update_layout(xaxis_title="Views", yaxis_title="Engagement Rate")
+                    # Increase marker border for visibility
+                    fig_scatter.update_traces(marker=dict(line=dict(width=1, color='DarkSlateGrey')))
                     st.plotly_chart(fig_scatter, use_container_width=True)
 
                 st.markdown("<hr>", unsafe_allow_html=True)
@@ -319,9 +324,13 @@ if mode == "Single Channel Analysis":
                     st.markdown("### 📌 Content Performance")
                     def categorize(title):
                         t = title.lower()
-                        if 'tutorial' in t or 'how to' in t: return 'Tutorial'
+                        if 'reaction' in t: return 'Reaction'
+                        if 'trailer' in t or 'teaser' in t: return 'Trailer/Teaser'
+                        if 'song' in t or 'music' in t: return 'Music'
+                        if 'comedy' in t or 'funny' in t: return 'Comedy'
                         if 'live' in t or 'stream' in t: return 'Live'
                         if '#shorts' in t or 'shorts' in t: return 'Shorts'
+                        if 'podcast' in t or 'interview' in t: return 'Podcast'
                         return 'Other'
                     
                     filtered_df['Content Type'] = filtered_df['title'].apply(categorize)
@@ -341,6 +350,45 @@ if mode == "Single Channel Analysis":
                     est_next_month_views = avg_monthly_upload * avg_views_per_video
                     st.info(f"Avg Monthly Uploads: **{avg_monthly_upload:.1f}**", icon="📅")
                     st.info(f"Est. Next Month Views: **{est_next_month_views:,.0f}**", icon="🚀")
+                
+                st.markdown("<hr>", unsafe_allow_html=True)
+
+                # Video Data Table
+                st.subheader("📑 Video Database")
+                st.markdown("Explore and filter specific videos from the dataset.")
+                
+                # Select formatting for presenting the dataframe beautifully
+                display_df = filtered_df[['title', 'Published Date', 'views', 'likes', 'comments', 'engagement']].copy()
+                display_df.rename(columns={
+                    'title': 'Video Title',
+                    'views': 'Views',
+                    'likes': 'Likes',
+                    'comments': 'Comments',
+                    'engagement': 'Engagement Rate'
+                }, inplace=True)
+                
+                # Format the Engagement Rate to percentage for the progress column
+                display_df['Engagement Rate'] = display_df['Engagement Rate'] * 100
+                
+                st.dataframe(
+                    display_df,
+                    use_container_width=True,
+                    height=400,
+                    hide_index=True,
+                    column_config={
+                        "Views": st.column_config.NumberColumn(format="%d"),
+                        "Likes": st.column_config.NumberColumn(format="%d"),
+                        "Comments": st.column_config.NumberColumn(format="%d"),
+                        "Engagement Rate": st.column_config.ProgressColumn(
+                            "Engagement (%)",
+                            help="Engagement rate percentage",
+                            format="%.2f%%",
+                            min_value=0,
+                            max_value=max(display_df['Engagement Rate'].max(), 5)
+                        ),
+                        "Published Date": st.column_config.DatetimeColumn(format="MMM DD, YYYY")
+                    }
+                )
                 
                 st.markdown("<hr>", unsafe_allow_html=True)
 
