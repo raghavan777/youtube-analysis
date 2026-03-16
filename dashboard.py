@@ -274,6 +274,8 @@ def build_pdf_report(channel_details, filtered_df):
     generated_at = dt.datetime.now()
     report_start = report_df["Published Date"].min().strftime("%Y-%m-%d")
     report_end = report_df["Published Date"].max().strftime("%Y-%m-%d")
+
+    # --- Color palette ---
     page_bg = "#0f0a1e"
     card_bg = "#1a1232"
     card_bg_alt = "#241845"
@@ -285,6 +287,13 @@ def build_pdf_report(channel_details, filtered_df):
     text_muted = "#c4b5fd"
     subtle = "#7e6ba3"
 
+    # --- Shared margins ---
+    ML = 0.06          # margin left
+    MR = 0.06          # margin right
+    CONTENT_W = 1.0 - ML - MR   # usable width = 0.88
+    GAP = 0.025        # vertical gap between sections
+
+    # --- Pre-compute data ---
     summary_metrics = [
         ("Total Views", format_compact_number(int(report_df["views"].sum()))),
         ("Videos", f"{len(report_df)}"),
@@ -298,16 +307,16 @@ def build_pdf_report(channel_details, filtered_df):
     monthly_df = report_df.resample("ME", on="Published Date").size().reset_index(name="videos")
     top_videos = report_df.nlargest(8, "views").sort_values("views")
 
+    # --- Helpers ---
     def new_page():
-        fig = plt.figure(figsize=(8.27, 11.69), facecolor=page_bg)
-        return fig
+        return plt.figure(figsize=(8.27, 11.69), facecolor=page_bg)
 
-    def add_page_number(fig, page_no):
+    def add_page_number(fig, page_no, total=3):
         footer = (
-            f"YouTube Insight Hub | {sanitize_pdf_text(channel_details['title'])} | "
-            f"{report_start} to {report_end} | Generated {generated_at:%d %b %Y %H:%M} | Page {page_no}"
+            f"YouTube Insight Hub  |  {sanitize_pdf_text(channel_details['title'])}  |  "
+            f"{report_start} to {report_end}  |  Generated {generated_at:%d %b %Y %H:%M}  |  Page {page_no}/{total}"
         )
-        fig.text(0.5, 0.022, footer, ha="center", va="bottom", fontsize=8, color=subtle)
+        fig.text(0.5, 0.018, footer, ha="center", va="bottom", fontsize=7, color=subtle)
 
     def card_axes(fig, rect, facecolor=card_bg):
         ax = fig.add_axes(rect)
@@ -318,169 +327,204 @@ def build_pdf_report(channel_details, filtered_df):
             spine.set_visible(False)
         return ax
 
-    def style_axes(ax):
-        ax.set_facecolor(card_bg)
+    def style_axes(ax, bg=card_bg):
+        ax.set_facecolor(bg)
         for spine in ax.spines.values():
             spine.set_color("#3d2a6e")
-        ax.tick_params(colors=text_muted, labelsize=8)
+        ax.tick_params(colors=text_muted, labelsize=7)
         ax.yaxis.label.set_color(text_muted)
         ax.xaxis.label.set_color(text_muted)
         ax.title.set_color(text_primary)
-        ax.grid(color="#3d2a6e", alpha=0.45, linewidth=0.5)
-
-    def add_section_title(ax, title, subtitle=None):
-        ax.text(0.03, 0.92, sanitize_pdf_text(title), color=text_primary, fontsize=11, fontweight="bold", transform=ax.transAxes)
-        if subtitle:
-            ax.text(0.03, 0.84, sanitize_pdf_text(subtitle), color=text_muted, fontsize=8, transform=ax.transAxes)
+        ax.grid(color="#3d2a6e", alpha=0.35, linewidth=0.5)
 
     def append_pdf_page(fig):
-        image_buffer = io.BytesIO()
-        fig.savefig(image_buffer, format="png", dpi=200, facecolor=fig.get_facecolor())
-        image_buffer.seek(0)
-        page_images.append(Image.open(image_buffer).convert("RGB").copy())
-        image_buffer.close()
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=200, facecolor=fig.get_facecolor())
+        buf.seek(0)
+        page_images.append(Image.open(buf).convert("RGB").copy())
+        buf.close()
         plt.close(fig)
 
+    # ================================================================
+    #  PAGE 1 — Cover, KPIs, Publishing Trend
+    # ================================================================
     fig = new_page()
 
-    hero_ax = card_axes(fig, [0.05, 0.84, 0.90, 0.11], facecolor=card_bg)
-    hero_ax.text(0.03, 0.64, "Insight Report", color=accent_cyan, fontsize=10, fontweight="bold", transform=hero_ax.transAxes)
-    hero_ax.text(0.03, 0.18, "YouTube Analytics Pro", color=text_primary, fontsize=22, fontweight="bold", transform=hero_ax.transAxes)
-    hero_ax.text(0.97, 0.62, sanitize_pdf_text(channel_details["title"]), color=text_primary, fontsize=12, fontweight="bold", ha="right", transform=hero_ax.transAxes)
-    hero_ax.text(0.97, 0.36, f"Channel ID: {sanitize_pdf_text(st.session_state.get('single_channel_id', ''))}", color=text_muted, fontsize=8, ha="right", transform=hero_ax.transAxes)
-    hero_ax.text(0.97, 0.14, f"Period {report_start} to {report_end}", color=text_muted, fontsize=8, ha="right", transform=hero_ax.transAxes)
+    # --- Hero header ---
+    hero_y = 0.87
+    hero_h = 0.10
+    hero_ax = card_axes(fig, [ML, hero_y, CONTENT_W, hero_h], facecolor=card_bg)
+    hero_ax.text(0.03, 0.72, "INSIGHT REPORT", color=accent_cyan, fontsize=9, fontweight="bold",
+                 transform=hero_ax.transAxes, fontstyle="italic")
+    hero_ax.text(0.03, 0.22, "YouTube Analytics Pro", color=text_primary, fontsize=22,
+                 fontweight="bold", transform=hero_ax.transAxes)
+    hero_ax.text(0.97, 0.68, sanitize_pdf_text(channel_details["title"]),
+                 color=text_primary, fontsize=12, fontweight="bold", ha="right",
+                 transform=hero_ax.transAxes)
+    hero_ax.text(0.97, 0.40, f"Channel ID: {sanitize_pdf_text(st.session_state.get('single_channel_id', ''))}",
+                 color=text_muted, fontsize=7.5, ha="right", transform=hero_ax.transAxes)
+    hero_ax.text(0.97, 0.15, f"Period  {report_start}  to  {report_end}",
+                 color=text_muted, fontsize=7.5, ha="right", transform=hero_ax.transAxes)
 
-    meta_ax = fig.add_axes([0.05, 0.78, 0.90, 0.04])
+    # --- Meta bar ---
+    meta_y = hero_y - 0.035
+    meta_ax = fig.add_axes([ML, meta_y, CONTENT_W, 0.025])
     meta_ax.axis("off")
-    meta_ax.text(0.00, 0.5, f"Generated {generated_at:%d %b %Y, %H:%M}", color=subtle, fontsize=8.5, va="center")
-    meta_ax.text(1.00, 0.5, f"Subscribers {format_compact_number(int(channel_details['subscribers']))}", color=subtle, fontsize=8.5, va="center", ha="right")
+    meta_ax.text(0.00, 0.5, f"Generated {generated_at:%d %b %Y, %H:%M}",
+                 color=subtle, fontsize=8, va="center")
+    meta_ax.text(1.00, 0.5,
+                 f"Subscribers  {format_compact_number(int(channel_details['subscribers']))}",
+                 color=subtle, fontsize=8, va="center", ha="right")
 
-    for index, (label, value) in enumerate(summary_metrics):
-        x = 0.05 + index * 0.15
-        metric_ax = card_axes(fig, [x, 0.68, 0.135, 0.085], facecolor=card_bg_alt if index % 2 else card_bg)
-        metric_ax.text(0.08, 0.68, sanitize_pdf_text(label.upper()), color=text_muted, fontsize=7, fontweight="bold", transform=metric_ax.transAxes)
-        metric_ax.text(0.08, 0.20, value, color=text_primary, fontsize=16, fontweight="bold", transform=metric_ax.transAxes)
+    # --- KPI cards  (3 columns × 2 rows) ---
+    kpi_top_y = meta_y - GAP - 0.07
+    kpi_card_w = (CONTENT_W - 2 * GAP) / 3
+    kpi_card_h = 0.07
+    for idx, (label, value) in enumerate(summary_metrics):
+        col = idx % 3
+        row = idx // 3
+        cx = ML + col * (kpi_card_w + GAP)
+        cy = kpi_top_y - row * (kpi_card_h + GAP)
+        bg = card_bg_alt if idx % 2 else card_bg
+        m_ax = card_axes(fig, [cx, cy, kpi_card_w, kpi_card_h], facecolor=bg)
+        m_ax.text(0.08, 0.72, sanitize_pdf_text(label.upper()), color=text_muted,
+                  fontsize=6.5, fontweight="bold", transform=m_ax.transAxes)
+        m_ax.text(0.08, 0.18, value, color=text_primary, fontsize=17,
+                  fontweight="bold", transform=m_ax.transAxes)
 
-    trend_panel = card_axes(fig, [0.05, 0.42, 0.56, 0.22])
-    add_section_title(trend_panel, "Publishing Trend", "Videos published per month")
-    trend_ax = fig.add_axes([0.08, 0.455, 0.50, 0.15])
+    # --- Publishing Trend chart ---
+    trend_top = kpi_top_y - 2 * (kpi_card_h + GAP) - GAP
+    trend_panel_h = 0.28
+    trend_panel = card_axes(fig, [ML, trend_top - trend_panel_h + kpi_card_h, CONTENT_W, trend_panel_h])
+    trend_panel.text(0.03, 0.94, "Publishing Trend", color=text_primary, fontsize=12,
+                     fontweight="bold", transform=trend_panel.transAxes)
+    trend_panel.text(0.03, 0.88, "Videos published per month", color=text_muted, fontsize=8,
+                     transform=trend_panel.transAxes)
+
+    trend_ax_y = trend_top - trend_panel_h + kpi_card_h + 0.04
+    trend_ax = fig.add_axes([ML + 0.04, trend_ax_y, CONTENT_W - 0.08, trend_panel_h - 0.08])
     style_axes(trend_ax)
-    trend_ax.plot(monthly_df["Published Date"], monthly_df["videos"], color=accent_cyan, linewidth=2.6, marker="o", markersize=3.2)
-    trend_ax.fill_between(monthly_df["Published Date"], monthly_df["videos"], color=accent_cyan, alpha=0.15)
+    trend_ax.plot(monthly_df["Published Date"], monthly_df["videos"],
+                  color=accent_cyan, linewidth=2.4, marker="o", markersize=3)
+    trend_ax.fill_between(monthly_df["Published Date"], monthly_df["videos"],
+                          color=accent_cyan, alpha=0.12)
     trend_ax.set_xlabel("")
-    trend_ax.set_ylabel("")
+    trend_ax.set_ylabel("Videos", fontsize=8)
     trend_ax.set_title("")
+    for lbl in trend_ax.get_xticklabels():
+        lbl.set_rotation(30)
+        lbl.set_fontsize(6.5)
 
-    mix_panel = card_axes(fig, [0.64, 0.42, 0.31, 0.22], facecolor=card_bg_alt)
-    add_section_title(mix_panel, "Engagement Mix", "Views, likes and comments share")
-    donut_ax = fig.add_axes([0.68, 0.465, 0.16, 0.13])
-    donut_ax.set_facecolor(card_bg_alt)
-    for spine in donut_ax.spines.values():
-        spine.set_visible(False)
-    donut_ax.set_aspect("equal")
-    donut_values = [report_df["views"].sum(), report_df["likes"].sum(), report_df["comments"].sum()]
-    donut_labels = ["Views", "Likes", "Comments"]
-    donut_colors = [accent_soft, accent_cyan, accent_rose]
-    wedges, _ = donut_ax.pie(
-        donut_values,
-        colors=donut_colors,
-        startangle=120,
-        wedgeprops=dict(width=0.38, edgecolor=card_bg_alt),
-    )
-    mix_panel.legend(wedges, donut_labels, loc="lower left", bbox_to_anchor=(0.03, 0.06), frameon=False, labelcolor=text_muted, fontsize=8)
-
-    insight_ax = card_axes(fig, [0.05, 0.25, 0.32, 0.13], facecolor=card_bg_alt)
-    add_section_title(insight_ax, "Quick Insights")
-    insight_ax.text(0.04, 0.60, f"Top video: {sanitize_pdf_text(top_video['title'][:36])}", color=text_primary, fontsize=8.2, transform=insight_ax.transAxes)
-    insight_ax.text(0.04, 0.40, f"Views on top video: {int(top_video['views']):,}", color=text_muted, fontsize=8.2, transform=insight_ax.transAxes)
-    insight_ax.text(0.04, 0.22, f"Best upload day: {sanitize_pdf_text(best_day)}", color=text_muted, fontsize=8.2, transform=insight_ax.transAxes)
-
-    ranking_panel = card_axes(fig, [0.40, 0.25, 0.55, 0.13])
-    add_section_title(ranking_panel, "Top Videos by Views")
-    rank_ax = fig.add_axes([0.44, 0.275, 0.47, 0.08])
-    style_axes(rank_ax)
-    rank_titles = [sanitize_pdf_text(title[:30] + ("..." if len(title) > 30 else "")) for title in top_videos["title"]]
-    rank_ax.barh(rank_titles, top_videos["views"], color=[accent, accent, accent_soft, accent_soft, accent_cyan, accent_cyan, "#67e8f9", "#c4b5fd"])
-    rank_ax.tick_params(axis="y", labelsize=7)
-    rank_ax.tick_params(axis="x", labelsize=7)
-    rank_ax.set_xlabel("")
-    rank_ax.set_ylabel("")
-    rank_ax.set_title("")
-
-    snapshot_panel = card_axes(fig, [0.05, 0.06, 0.90, 0.15])
-    add_section_title(snapshot_panel, "Executive Snapshot", "High-performing videos in the current filtered result")
-    snapshot_df = report_df.nlargest(5, "views")[["title", "views", "likes", "comments"]].copy()
-    snapshot_df.insert(0, "#", range(1, len(snapshot_df) + 1))
-    snapshot_df["title"] = snapshot_df["title"].apply(lambda value: sanitize_pdf_text(value[:52] + ("..." if len(value) > 52 else "")))
-    snapshot_df["views"] = snapshot_df["views"].map(lambda value: f"{int(value):,}")
-    snapshot_df["likes"] = snapshot_df["likes"].map(lambda value: f"{int(value):,}")
-    snapshot_df["comments"] = snapshot_df["comments"].map(lambda value: f"{int(value):,}")
-    snapshot_table_ax = fig.add_axes([0.07, 0.075, 0.86, 0.10])
-    snapshot_table_ax.axis("off")
-    snapshot_table = snapshot_table_ax.table(
-        cellText=snapshot_df.values,
-        colLabels=["#", "Title", "Views", "Likes", "Comments"],
-        cellLoc="left",
-        colLoc="left",
-        loc="center",
-        bbox=[0, 0, 1, 1],
-        colWidths=[0.05, 0.52, 0.14, 0.14, 0.15],
-    )
-    snapshot_table.auto_set_font_size(False)
-    snapshot_table.set_fontsize(7.2)
-    for (row, col), cell in snapshot_table.get_celld().items():
-        cell.set_linewidth(0.6)
-        cell.set_edgecolor("#3d2a6e")
-        if row == 0:
-            cell.set_facecolor(accent)
-            cell.get_text().set_color(text_primary)
-            cell.get_text().set_fontweight("bold")
-        else:
-            cell.set_facecolor(card_bg if row % 2 else card_bg_alt)
-            cell.get_text().set_color(text_primary)
+    # --- Quick Insights card (bottom of page 1) ---
+    insight_h = 0.12
+    insight_y = 0.05
+    insight_ax = card_axes(fig, [ML, insight_y, CONTENT_W, insight_h], facecolor=card_bg_alt)
+    insight_ax.text(0.03, 0.88, "Quick Insights", color=text_primary, fontsize=11,
+                    fontweight="bold", transform=insight_ax.transAxes)
+    insight_ax.text(0.04, 0.62, f"Top video:  {sanitize_pdf_text(top_video['title'][:60])}",
+                    color=text_primary, fontsize=8.5, transform=insight_ax.transAxes)
+    insight_ax.text(0.04, 0.40, f"Views on top video:  {int(top_video['views']):,}",
+                    color=text_muted, fontsize=8.5, transform=insight_ax.transAxes)
+    insight_ax.text(0.04, 0.20, f"Best upload day:  {sanitize_pdf_text(best_day)}",
+                    color=text_muted, fontsize=8.5, transform=insight_ax.transAxes)
 
     add_page_number(fig, 1)
     append_pdf_page(fig)
 
+    # ================================================================
+    #  PAGE 2 — Charts + Executive Snapshot table
+    # ================================================================
     fig2 = new_page()
 
-    page2_header = card_axes(fig2, [0.05, 0.86, 0.90, 0.08], facecolor=card_bg)
-    page2_header.text(0.03, 0.55, "Detailed Video Performance", color=text_primary, fontsize=18, fontweight="bold", transform=page2_header.transAxes)
-    page2_header.text(0.03, 0.20, "Full ranking table for the current filtered dataset", color=text_muted, fontsize=8.5, transform=page2_header.transAxes)
-    page2_header.text(0.97, 0.38, sanitize_pdf_text(channel_details["title"]), color=accent_cyan, fontsize=10, fontweight="bold", ha="right", transform=page2_header.transAxes)
+    # --- Page 2 header ---
+    p2_header_y = 0.90
+    p2_header_h = 0.065
+    p2_header = card_axes(fig2, [ML, p2_header_y, CONTENT_W, p2_header_h], facecolor=card_bg)
+    p2_header.text(0.03, 0.60, "Visual Analytics", color=text_primary, fontsize=18,
+                   fontweight="bold", transform=p2_header.transAxes)
+    p2_header.text(0.03, 0.18, "Charts and top-video breakdown", color=text_muted,
+                   fontsize=8.5, transform=p2_header.transAxes)
+    p2_header.text(0.97, 0.40, sanitize_pdf_text(channel_details["title"]),
+                   color=accent_cyan, fontsize=10, fontweight="bold", ha="right",
+                   transform=p2_header.transAxes)
 
-    page2_stats = card_axes(fig2, [0.05, 0.76, 0.90, 0.07], facecolor=card_bg_alt)
-    page2_stats.text(0.03, 0.50, f"Best upload day: {sanitize_pdf_text(best_day)}", color=text_primary, fontsize=9, va="center", transform=page2_stats.transAxes)
-    page2_stats.text(0.36, 0.50, f"Top video views: {int(top_video['views']):,}", color=text_primary, fontsize=9, va="center", transform=page2_stats.transAxes)
-    page2_stats.text(0.69, 0.50, f"Average engagement: {report_df['engagement'].mean() * 100:.2f}%", color=text_primary, fontsize=9, va="center", transform=page2_stats.transAxes)
+    # --- Engagement Mix  (left half) ---
+    chart_row_y = 0.58
+    chart_row_h = 0.28
+    half_w = (CONTENT_W - GAP) / 2
 
-    page_two = report_df.nlargest(20, "views")[["title", "Published Date", "views", "likes", "comments", "engagement"]].copy()
-    page_two.insert(0, "#", range(1, len(page_two) + 1))
-    page_two["title"] = page_two["title"].apply(lambda value: "\n".join(textwrap.wrap(sanitize_pdf_text(value), 36))[:120])
-    page_two["Published Date"] = page_two["Published Date"].dt.strftime("%Y-%m-%d")
-    page_two["views"] = page_two["views"].map(lambda value: f"{int(value):,}")
-    page_two["likes"] = page_two["likes"].map(lambda value: f"{int(value):,}")
-    page_two["comments"] = page_two["comments"].map(lambda value: f"{int(value):,}")
-    page_two["engagement"] = page_two["engagement"].map(lambda value: f"{value * 100:.2f}%")
+    mix_panel = card_axes(fig2, [ML, chart_row_y, half_w, chart_row_h], facecolor=card_bg_alt)
+    mix_panel.text(0.06, 0.93, "Engagement Mix", color=text_primary, fontsize=11,
+                   fontweight="bold", transform=mix_panel.transAxes)
+    mix_panel.text(0.06, 0.86, "Views, likes & comments share", color=text_muted,
+                   fontsize=7.5, transform=mix_panel.transAxes)
 
-    table_wrap = card_axes(fig2, [0.05, 0.08, 0.90, 0.64], facecolor=card_bg)
-    add_section_title(table_wrap, "Ranking Table", "Top 20 videos ordered by views")
-    table2_ax = fig2.add_axes([0.07, 0.11, 0.86, 0.56])
-    table2_ax.axis("off")
-    table2 = table2_ax.table(
-        cellText=page_two.values,
-        colLabels=["#", "Title", "Published", "Views", "Likes", "Comments", "Engagement"],
-        cellLoc="left",
-        colLoc="left",
-        loc="center",
+    donut_size = 0.17
+    donut_x = ML + (half_w - donut_size) / 2
+    donut_y = chart_row_y + 0.03
+    donut_ax = fig2.add_axes([donut_x, donut_y, donut_size, donut_size])
+    donut_ax.set_facecolor(card_bg_alt)
+    for sp in donut_ax.spines.values():
+        sp.set_visible(False)
+    donut_ax.set_aspect("equal")
+    donut_values = [report_df["views"].sum(), report_df["likes"].sum(), report_df["comments"].sum()]
+    donut_labels = ["Views", "Likes", "Comments"]
+    donut_colors = [accent_soft, accent_cyan, accent_rose]
+    wedges, _ = donut_ax.pie(donut_values, colors=donut_colors, startangle=120,
+                              wedgeprops=dict(width=0.38, edgecolor=card_bg_alt))
+    mix_panel.legend(wedges, donut_labels, loc="lower center",
+                     bbox_to_anchor=(0.5, 0.01), ncol=3, frameon=False,
+                     labelcolor=text_muted, fontsize=7.5)
+
+    # --- Top Videos bar chart (right half) ---
+    bar_x = ML + half_w + GAP
+    bar_panel = card_axes(fig2, [bar_x, chart_row_y, half_w, chart_row_h], facecolor=card_bg)
+    bar_panel.text(0.06, 0.93, "Top Videos by Views", color=text_primary, fontsize=11,
+                   fontweight="bold", transform=bar_panel.transAxes)
+
+    rank_ax = fig2.add_axes([bar_x + 0.15, chart_row_y + 0.04, half_w - 0.18, chart_row_h - 0.08])
+    style_axes(rank_ax)
+    rank_titles = [sanitize_pdf_text(t[:28] + ("..." if len(t) > 28 else "")) for t in top_videos["title"]]
+    bar_colors = [accent, accent, accent_soft, accent_soft, accent_cyan, accent_cyan, "#67e8f9", "#c4b5fd"][:len(rank_titles)]
+    rank_ax.barh(rank_titles, top_videos["views"], color=bar_colors)
+    rank_ax.tick_params(axis="y", labelsize=6.5, pad=6) # Increased pad for "arranged" look
+    rank_ax.tick_params(axis="x", labelsize=6.5)
+    rank_ax.set_xlabel("")
+    rank_ax.set_ylabel("")
+    rank_ax.set_title("")
+
+    # --- Executive Snapshot table ---
+    table_y = 0.06
+    table_h = 0.47
+    table_panel = card_axes(fig2, [ML, table_y, CONTENT_W, table_h], facecolor=card_bg)
+    table_panel.text(0.03, 0.96, "Executive Snapshot", color=text_primary, fontsize=12,
+                     fontweight="bold", transform=table_panel.transAxes)
+    table_panel.text(0.03, 0.92, "High-performing videos in the current filtered result",
+                     color=text_muted, fontsize=8, transform=table_panel.transAxes)
+
+    snapshot_df = report_df.nlargest(5, "views")[["title", "views", "likes", "comments"]].copy()
+    snapshot_df.insert(0, "#", range(1, len(snapshot_df) + 1))
+    snapshot_df["title"] = snapshot_df["title"].apply(
+        lambda v: sanitize_pdf_text(v[:55] + ("..." if len(v) > 55 else "")))
+    snapshot_df["views"] = snapshot_df["views"].map(lambda v: f"{int(v):,}")
+    snapshot_df["likes"] = snapshot_df["likes"].map(lambda v: f"{int(v):,}")
+    snapshot_df["comments"] = snapshot_df["comments"].map(lambda v: f"{int(v):,}")
+
+    snap_ax = fig2.add_axes([ML + 0.02, table_y + 0.04, CONTENT_W - 0.04, table_h - 0.14])
+    snap_ax.axis("off")
+    snap_tbl = snap_ax.table(
+        cellText=snapshot_df.values,
+        colLabels=["#", "Title", "Views", "Likes", "Comments"],
+        cellLoc="left", colLoc="left", loc="upper center",
         bbox=[0, 0, 1, 1],
-        colWidths=[0.04, 0.38, 0.12, 0.12, 0.11, 0.11, 0.12],
+        colWidths=[0.05, 0.50, 0.15, 0.15, 0.15],
     )
-    table2.auto_set_font_size(False)
-    table2.set_fontsize(7.0)
-    for (row, col), cell in table2.get_celld().items():
-        cell.set_linewidth(0.45)
+    snap_tbl.auto_set_font_size(False)
+    snap_tbl.set_fontsize(8)
+    for (row, col), cell in snap_tbl.get_celld().items():
+        cell.set_linewidth(0.5)
         cell.set_edgecolor("#3d2a6e")
+        cell.set_height(0.12) # Precision height for alignment
         if row == 0:
             cell.set_facecolor(accent)
             cell.get_text().set_color(text_primary)
@@ -488,13 +532,84 @@ def build_pdf_report(channel_details, filtered_df):
         else:
             cell.set_facecolor(card_bg if row % 2 else card_bg_alt)
             cell.get_text().set_color(text_primary)
-            if col == 6:
-                cell.get_text().set_color("#f43f5e")
 
     add_page_number(fig2, 2)
     append_pdf_page(fig2)
 
-    page_images[0].save(pdf_buffer, format="PDF", resolution=100.0, save_all=True, append_images=page_images[1:])
+    # ================================================================
+    #  PAGE 3 — Detailed Video Performance (ranking table)
+    # ================================================================
+    fig3 = new_page()
+
+    p3_header = card_axes(fig3, [ML, 0.90, CONTENT_W, 0.065], facecolor=card_bg)
+    p3_header.text(0.03, 0.60, "Detailed Video Performance", color=text_primary,
+                   fontsize=18, fontweight="bold", transform=p3_header.transAxes)
+    p3_header.text(0.03, 0.18, "Full ranking table for the current filtered dataset",
+                   color=text_muted, fontsize=8.5, transform=p3_header.transAxes)
+    p3_header.text(0.97, 0.40, sanitize_pdf_text(channel_details["title"]),
+                   color=accent_cyan, fontsize=10, fontweight="bold", ha="right",
+                   transform=p3_header.transAxes)
+
+    # Stats ribbon
+    stats_y = 0.83
+    stats_h = 0.05
+    p3_stats = card_axes(fig3, [ML, stats_y, CONTENT_W, stats_h], facecolor=card_bg_alt)
+    p3_stats.text(0.03, 0.50, f"Best upload day: {sanitize_pdf_text(best_day)}",
+                  color=text_primary, fontsize=9, va="center", transform=p3_stats.transAxes)
+    p3_stats.text(0.38, 0.50, f"Top video views: {int(top_video['views']):,}",
+                  color=text_primary, fontsize=9, va="center", transform=p3_stats.transAxes)
+    p3_stats.text(0.72, 0.50, f"Average engagement: {report_df['engagement'].mean() * 100:.2f}%",
+                  color=text_primary, fontsize=9, va="center", transform=p3_stats.transAxes)
+
+    # Build table data
+    page_three = report_df.nlargest(20, "views")[
+        ["title", "Published Date", "views", "likes", "comments", "engagement"]].copy()
+    page_three.insert(0, "#", range(1, len(page_three) + 1))
+    page_three["title"] = page_three["title"].apply(
+        lambda v: "\n".join(textwrap.wrap(sanitize_pdf_text(v), 32))[:120])
+    page_three["Published Date"] = page_three["Published Date"].dt.strftime("%Y-%m-%d")
+    page_three["views"] = page_three["views"].map(lambda v: f"{int(v):,}")
+    page_three["likes"] = page_three["likes"].map(lambda v: f"{int(v):,}")
+    page_three["comments"] = page_three["comments"].map(lambda v: f"{int(v):,}")
+    page_three["engagement"] = page_three["engagement"].map(lambda v: f"{v * 100:.2f}%")
+
+    tbl_y = 0.06
+    tbl_h = 0.74
+    tbl_panel = card_axes(fig3, [ML, tbl_y, CONTENT_W, tbl_h], facecolor=card_bg)
+    tbl_panel.text(0.03, 0.98, "Ranking Table", color=text_primary, fontsize=11,
+                   fontweight="bold", transform=tbl_panel.transAxes)
+    tbl_panel.text(0.03, 0.955, "Top 20 videos ordered by views", color=text_muted,
+                   fontsize=7.5, transform=tbl_panel.transAxes)
+
+    tbl_ax = fig3.add_axes([ML + 0.02, tbl_y + 0.02, CONTENT_W - 0.04, tbl_h - 0.07])
+    tbl_ax.axis("off")
+    tbl = tbl_ax.table(
+        cellText=page_three.values,
+        colLabels=["#", "Title", "Published", "Views", "Likes", "Comments", "Engagement"],
+        cellLoc="left", colLoc="left", loc="upper center",
+        bbox=[0, 0, 1, 1],
+        colWidths=[0.04, 0.36, 0.12, 0.12, 0.12, 0.12, 0.12],
+    )
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(7.0)
+    for (row, col), cell in tbl.get_celld().items():
+        cell.set_linewidth(0.4)
+        cell.set_edgecolor("#3d2a6e")
+        cell.set_height(0.15) # Consistent height for multiline wrapped titles
+        if row == 0:
+            cell.set_facecolor(accent)
+            cell.get_text().set_color(text_primary)
+            cell.get_text().set_fontweight("bold")
+        else:
+            cell.set_facecolor(card_bg if row % 2 else card_bg_alt)
+            cell.get_text().set_color(text_primary)
+
+    add_page_number(fig3, 3)
+    append_pdf_page(fig3)
+
+    # --- Combine pages into PDF ---
+    page_images[0].save(pdf_buffer, format="PDF", resolution=100.0,
+                        save_all=True, append_images=page_images[1:])
     pdf_buffer.seek(0)
     return pdf_buffer.getvalue()
 

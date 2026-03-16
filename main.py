@@ -14,8 +14,9 @@ def get_channel_data(CHANNEL_ID):
         id=CHANNEL_ID
     )
     channel_response = channel_request.execute()
-
-    if not channel_response["items"]:
+    
+    # Check if 'items' exists and is not empty
+    if "items" not in channel_response or not channel_response["items"]:
         return None, None
 
     channel = channel_response['items'][0]
