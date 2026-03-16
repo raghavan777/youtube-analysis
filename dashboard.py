@@ -10,7 +10,6 @@ import requests
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib import gridspec
 from PIL import Image
 from streamlit_lottie import st_lottie
 from main import get_channel_data
@@ -20,103 +19,153 @@ st.set_page_config(page_title="YouTube Analytics Pro", layout="wide", page_icon=
 # --- CUSTOM CSS FOR MODERN UI ---
 st.markdown("""
 <style>
-/* Import Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;600;800&display=swap');
 
-html, body, [class*="css"]  {
-    font-family: 'Outfit', sans-serif;
+html, body, [class*="css"] {
+    font-family: 'Inter', 'Outfit', sans-serif;
 }
+h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; }
 
-/* Advanced CSS Animations */
 @keyframes fadeInUp {
-    0% {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    0%   { opacity: 0; transform: translateY(24px); }
+    100% { opacity: 1; transform: translateY(0); }
 }
-
+@keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
 @keyframes pulseGlow {
-    0% { box-shadow: 0 0 15px rgba(0, 242, 254, 0.4); }
-    50% { box-shadow: 0 0 25px rgba(0, 242, 254, 0.7); }
-    100% { box-shadow: 0 0 15px rgba(0, 242, 254, 0.4); }
+    0%, 100% { box-shadow: 0 0 18px rgba(124, 58, 237, 0.35); }
+    50%      { box-shadow: 0 0 30px rgba(124, 58, 237, 0.65); }
 }
-
 @keyframes slideInRight {
-    0% {
-        opacity: 0;
-        transform: translateX(30px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateX(0);
-    }
+    0%   { opacity: 0; transform: translateX(30px); }
+    100% { opacity: 1; transform: translateX(0); }
 }
 
-/* Glassmorphism for KPI Cards */
+/* ---------- KPI Metric Cards ---------- */
 [data-testid="stMetric"] {
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(124, 58, 237, 0.06);
+    border-radius: 18px;
+    padding: 22px 24px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.18);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(124, 58, 237, 0.12);
+    border-left: 4px solid;
+    border-image: linear-gradient(180deg, #7c3aed, #f43f5e) 1;
     transition: transform 0.3s ease, box-shadow 0.3s ease, border 0.3s ease;
-    animation: fadeInUp 0.6s ease-out forwards;
+    animation: fadeInUp 0.55s ease-out forwards;
 }
-
 [data-testid="stMetric"]:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 12px 40px rgba(0, 242, 254, 0.15);
-    border: 1px solid rgba(0, 242, 254, 0.4);
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 14px 44px rgba(124, 58, 237, 0.22);
+    border: 1px solid rgba(124, 58, 237, 0.45);
+    border-left: 4px solid;
+    border-image: linear-gradient(180deg, #7c3aed, #f43f5e) 1;
 }
-
 [data-testid="stMetricValue"] {
-    font-size: 2.2rem !important;
+    font-size: 2.3rem !important;
     font-weight: 800 !important;
-    background: -webkit-linear-gradient(45deg, #00F2FE, #4FACFE);
+    font-family: 'Outfit', sans-serif !important;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed, #f43f5e);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
+[data-testid="stMetricLabel"] {
+    font-weight: 600 !important;
+    letter-spacing: 0.03em;
+    opacity: 0.85;
+}
 
-/* Gradient Titles & Markdown formatting */
+/* ---------- Gradient Headings ---------- */
 h1, h2, h3, h4, .stMarkdown p strong {
-    background: -webkit-linear-gradient(45deg, #0072ff, #00c6ff);
+    background: linear-gradient(135deg, #7c3aed, #a78bfa, #f43f5e);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     font-weight: 800 !important;
 }
 
-/* Button Upgrades */
+/* ---------- Buttons ---------- */
 .stButton > button {
     border-radius: 50px !important;
-    background: linear-gradient(90deg, #0072ff 0%, #00c6ff 100%) !important;
+    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #f43f5e 100%) !important;
+    color: white !important;
+    font-weight: 600 !important;
+    font-family: 'Inter', sans-serif !important;
+    letter-spacing: 0.04em;
+    border: none !important;
+    padding: 0.55rem 1.8rem !important;
+    animation: pulseGlow 3s infinite;
+    transition: all 0.3s ease !important;
+}
+.stButton > button:hover {
+    transform: scale(1.06) !important;
+    box-shadow: 0 8px 28px rgba(244, 63, 94, 0.5) !important;
+}
+
+/* ---------- Download Buttons ---------- */
+.stDownloadButton > button {
+    border-radius: 50px !important;
+    background: linear-gradient(135deg, #7c3aed 0%, #f43f5e 100%) !important;
     color: white !important;
     font-weight: 600 !important;
     border: none !important;
-    animation: pulseGlow 2.5s infinite;
-    transition: all 0.3s ease !important;
+    padding: 0.55rem 1.6rem !important;
+    transition: all 0.35s ease !important;
 }
-
-.stButton > button:hover {
+.stDownloadButton > button:hover {
     transform: scale(1.05) !important;
-    box-shadow: 0 6px 20px rgba(255, 65, 108, 0.6) !important;
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.5) !important;
+    background: linear-gradient(135deg, #f43f5e 0%, #7c3aed 100%) !important;
 }
 
-/* Styled sidebar */
+/* ---------- Sidebar ---------- */
 [data-testid="stSidebar"] {
-    background-color: rgba(10, 10, 15, 0.95);
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    background: linear-gradient(180deg, rgba(10, 6, 20, 0.97), rgba(18, 10, 35, 0.97));
+    border-right: 1px solid rgba(124, 58, 237, 0.15);
     animation: slideInRight 0.5s ease-out forwards;
 }
+[data-testid="stSidebar"] [data-testid="stMarkdown"] h1,
+[data-testid="stSidebar"] [data-testid="stMarkdown"] h2,
+[data-testid="stSidebar"] [data-testid="stMarkdown"] h3 {
+    background: linear-gradient(135deg, #a78bfa, #f43f5e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
 
-/* Plotly charts wrap animation */
+/* ---------- Charts ---------- */
 .stPlotlyChart {
-    animation: fadeInUp 0.8s ease-out forwards;
+    animation: fadeInUp 0.7s ease-out forwards;
+    border-radius: 16px;
+}
+
+/* ---------- Dataframe ---------- */
+[data-testid="stDataFrame"] {
+    border-radius: 16px;
+    border: 1px solid rgba(124, 58, 237, 0.12);
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.08);
+    animation: fadeInUp 0.6s ease-out forwards;
+}
+
+/* ---------- Progress bar ---------- */
+.stProgress > div > div {
+    background: linear-gradient(90deg, #7c3aed, #a855f7, #f43f5e) !important;
+    border-radius: 10px;
+}
+
+/* ---------- Gradient Divider ---------- */
+.gradient-divider {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #7c3aed, #f43f5e, transparent);
+    border: none;
+    margin: 2rem 0;
+    border-radius: 2px;
+}
+
+/* ---------- Toast / Alerts ---------- */
+[data-testid="stToast"] {
+    border-left: 4px solid #7c3aed !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -176,14 +225,21 @@ def render_channel_analysis(channel_id):
 
 # --- PLOTLY THEME SETTINGS ---
 CHART_THEME = "plotly_dark"
-CHART_COLOR_SEQ = px.colors.qualitative.Pastel
+CHART_COLOR_SEQ = ["#7c3aed", "#f43f5e", "#f59e0b", "#10b981", "#38bdf8", "#e879f9", "#a78bfa", "#fb7185"]
 def apply_transparent_bg(fig):
     fig.update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
-        font_family="Outfit"
+        font_family="Inter",
+        font_color="#c4b5fd",
+        title_font_color="#e9d5ff",
     )
     return fig
+
+
+def gradient_divider():
+    """Render a gradient divider instead of plain <hr>."""
+    st.markdown('<div class="gradient-divider"></div>', unsafe_allow_html=True)
 
 
 def sanitize_pdf_text(value):
@@ -218,32 +274,64 @@ def build_pdf_report(channel_details, filtered_df):
     generated_at = dt.datetime.now()
     report_start = report_df["Published Date"].min().strftime("%Y-%m-%d")
     report_end = report_df["Published Date"].max().strftime("%Y-%m-%d")
-    page_bg = "#120a24"
-    accent = "#8b3dff"
-    accent_soft = "#b58cff"
-    text_primary = "#f7f3ff"
-    text_muted = "#b7a6df"
-    highlight = "#ff8fab"
+    page_bg = "#0f0a1e"
+    card_bg = "#1a1232"
+    card_bg_alt = "#241845"
+    accent = "#7c3aed"
+    accent_soft = "#a78bfa"
+    accent_cyan = "#e879f9"
+    accent_rose = "#f43f5e"
+    text_primary = "#f5f0ff"
+    text_muted = "#c4b5fd"
+    subtle = "#7e6ba3"
+
+    summary_metrics = [
+        ("Total Views", format_compact_number(int(report_df["views"].sum()))),
+        ("Videos", f"{len(report_df)}"),
+        ("Total Likes", format_compact_number(int(report_df["likes"].sum()))),
+        ("Comments", format_compact_number(int(report_df["comments"].sum()))),
+        ("Avg Engagement", f"{report_df['engagement'].mean() * 100:.2f}%"),
+        ("Avg Views", format_compact_number(report_df["views"].mean())),
+    ]
+    top_video = report_df.nlargest(1, "views").iloc[0]
+    best_day = report_df.groupby("Day")["views"].mean().idxmax() if "Day" in report_df.columns else "N/A"
+    monthly_df = report_df.resample("ME", on="Published Date").size().reset_index(name="videos")
+    top_videos = report_df.nlargest(8, "views").sort_values("views")
+
+    def new_page():
+        fig = plt.figure(figsize=(8.27, 11.69), facecolor=page_bg)
+        return fig
+
+    def add_page_number(fig, page_no):
+        footer = (
+            f"YouTube Insight Hub | {sanitize_pdf_text(channel_details['title'])} | "
+            f"{report_start} to {report_end} | Generated {generated_at:%d %b %Y %H:%M} | Page {page_no}"
+        )
+        fig.text(0.5, 0.022, footer, ha="center", va="bottom", fontsize=8, color=subtle)
+
+    def card_axes(fig, rect, facecolor=card_bg):
+        ax = fig.add_axes(rect)
+        ax.set_facecolor(facecolor)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        return ax
 
     def style_axes(ax):
-        ax.set_facecolor(page_bg)
+        ax.set_facecolor(card_bg)
         for spine in ax.spines.values():
-            spine.set_color("#3b245d")
+            spine.set_color("#3d2a6e")
         ax.tick_params(colors=text_muted, labelsize=8)
         ax.yaxis.label.set_color(text_muted)
         ax.xaxis.label.set_color(text_muted)
         ax.title.set_color(text_primary)
+        ax.grid(color="#3d2a6e", alpha=0.45, linewidth=0.5)
 
-    def add_page_footer(fig, page_no):
-        footer = (
-            f"YouTube Insight Hub - Report for {sanitize_pdf_text(channel_details['title'])} "
-            f"- Period {report_start} to {report_end} - Generated {generated_at:%d %b %Y %H:%M} "
-            f"- Page {page_no}"
-        )
-        fig.text(0.5, 0.02, footer, ha="center", va="bottom", fontsize=8, color=accent_soft)
-        fig.add_artist(
-            plt.Line2D([0.05, 0.95], [0.045, 0.045], transform=fig.transFigure, color=accent_soft, linewidth=1.2)
-        )
+    def add_section_title(ax, title, subtitle=None):
+        ax.text(0.03, 0.92, sanitize_pdf_text(title), color=text_primary, fontsize=11, fontweight="bold", transform=ax.transAxes)
+        if subtitle:
+            ax.text(0.03, 0.84, sanitize_pdf_text(subtitle), color=text_muted, fontsize=8, transform=ax.transAxes)
 
     def append_pdf_page(fig):
         image_buffer = io.BytesIO()
@@ -253,177 +341,157 @@ def build_pdf_report(channel_details, filtered_df):
         image_buffer.close()
         plt.close(fig)
 
-    fig = plt.figure(figsize=(8.27, 11.69), facecolor="white")
-    outer = gridspec.GridSpec(
-        5,
-        1,
-        height_ratios=[1.0, 1.0, 2.2, 2.4, 1.7],
-        hspace=0.35,
-        top=0.96,
-        bottom=0.08,
-        left=0.05,
-        right=0.97,
-    )
+    fig = new_page()
 
-    header_ax = fig.add_subplot(outer[0])
-    header_ax.set_facecolor(page_bg)
-    header_ax.set_xticks([])
-    header_ax.set_yticks([])
-    for spine in header_ax.spines.values():
-        spine.set_visible(False)
-    header_ax.text(0.02, 0.62, "YouTube Insight Hub", color=text_primary, fontsize=19, fontweight="bold", transform=header_ax.transAxes)
-    header_ax.text(0.98, 0.68, sanitize_pdf_text(channel_details["title"]), color=text_primary, fontsize=10, fontweight="bold", ha="right", transform=header_ax.transAxes)
-    header_ax.text(0.98, 0.42, f"Channel ID: {sanitize_pdf_text(st.session_state.get('single_channel_id', ''))}", color=text_muted, fontsize=8, ha="right", transform=header_ax.transAxes)
-    header_ax.text(0.98, 0.18, f"{format_compact_number(int(channel_details['subscribers']))} subscribers", color=text_muted, fontsize=9, ha="right", transform=header_ax.transAxes)
+    hero_ax = card_axes(fig, [0.05, 0.84, 0.90, 0.11], facecolor=card_bg)
+    hero_ax.text(0.03, 0.64, "Insight Report", color=accent_cyan, fontsize=10, fontweight="bold", transform=hero_ax.transAxes)
+    hero_ax.text(0.03, 0.18, "YouTube Analytics Pro", color=text_primary, fontsize=22, fontweight="bold", transform=hero_ax.transAxes)
+    hero_ax.text(0.97, 0.62, sanitize_pdf_text(channel_details["title"]), color=text_primary, fontsize=12, fontweight="bold", ha="right", transform=hero_ax.transAxes)
+    hero_ax.text(0.97, 0.36, f"Channel ID: {sanitize_pdf_text(st.session_state.get('single_channel_id', ''))}", color=text_muted, fontsize=8, ha="right", transform=hero_ax.transAxes)
+    hero_ax.text(0.97, 0.14, f"Period {report_start} to {report_end}", color=text_muted, fontsize=8, ha="right", transform=hero_ax.transAxes)
 
-    meta_ax = fig.add_subplot(outer[1])
+    meta_ax = fig.add_axes([0.05, 0.78, 0.90, 0.04])
     meta_ax.axis("off")
-    meta_ax.text(0.01, 0.72, f"Report period: {report_start} to {report_end}", fontsize=8.5, color="#5e4aa1", fontweight="bold")
-    meta_ax.text(0.99, 0.72, f"Generated {generated_at:%d %b %Y, %H:%M}", fontsize=8.5, color="#5e4aa1", ha="right")
-    meta_ax.text(0.01, 0.18, "CHANNEL METRICS", fontsize=8.2, color=accent_soft, fontweight="bold")
+    meta_ax.text(0.00, 0.5, f"Generated {generated_at:%d %b %Y, %H:%M}", color=subtle, fontsize=8.5, va="center")
+    meta_ax.text(1.00, 0.5, f"Subscribers {format_compact_number(int(channel_details['subscribers']))}", color=subtle, fontsize=8.5, va="center", ha="right")
 
-    metrics_ax = fig.add_subplot(outer[1], frame_on=False)
-    metrics_ax.set_xlim(0, 1)
-    metrics_ax.set_ylim(0, 1)
-    metrics_ax.axis("off")
-    metric_labels = [
-        ("TOTAL VIEWS", format_compact_number(int(report_df["views"].sum()))),
-        ("TOTAL VIDEOS", f"{len(report_df)}"),
-        ("TOTAL LIKES", format_compact_number(int(report_df["likes"].sum()))),
-        ("TOTAL COMMENTS", format_compact_number(int(report_df["comments"].sum()))),
-        ("ENGAGEMENT", f"{report_df['engagement'].mean() * 100:.1f}%"),
-        ("AVG VIEWS/VID", format_compact_number(report_df["views"].mean())),
-    ]
-    card_y = 0.05
-    card_h = 0.55
-    card_w = 0.155
-    start_x = 0.01
-    gap = 0.01
-    for index, (label, value) in enumerate(metric_labels):
-        x = start_x + index * (card_w + gap)
-        metrics_ax.add_patch(plt.Rectangle((x, card_y), card_w, card_h, facecolor=page_bg, edgecolor=accent_soft, linewidth=0.8))
-        metrics_ax.text(x + 0.02, card_y + 0.38, label, color="#7f73aa", fontsize=6.5, fontweight="bold")
-        metrics_ax.text(x + 0.02, card_y + 0.09, value, color=highlight if label == "ENGAGEMENT" else text_primary, fontsize=15, fontweight="bold")
+    for index, (label, value) in enumerate(summary_metrics):
+        x = 0.05 + index * 0.15
+        metric_ax = card_axes(fig, [x, 0.68, 0.135, 0.085], facecolor=card_bg_alt if index % 2 else card_bg)
+        metric_ax.text(0.08, 0.68, sanitize_pdf_text(label.upper()), color=text_muted, fontsize=7, fontweight="bold", transform=metric_ax.transAxes)
+        metric_ax.text(0.08, 0.20, value, color=text_primary, fontsize=16, fontweight="bold", transform=metric_ax.transAxes)
 
-    charts_title_ax = fig.add_subplot(outer[2], frame_on=False)
-    charts_title_ax.axis("off")
-    charts_title_ax.text(0.01, 1.05, "ANALYTICS CHARTS", fontsize=8.2, color=accent_soft, fontweight="bold")
-
-    charts_grid = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=outer[2], wspace=0.08, width_ratios=[1.35, 1])
-    trend_ax = fig.add_subplot(charts_grid[0])
+    trend_panel = card_axes(fig, [0.05, 0.42, 0.56, 0.22])
+    add_section_title(trend_panel, "Publishing Trend", "Videos published per month")
+    trend_ax = fig.add_axes([0.08, 0.455, 0.50, 0.15])
     style_axes(trend_ax)
-    monthly_df = report_df.resample("ME", on="Published Date").size().reset_index(name="videos")
-    trend_ax.plot(monthly_df["Published Date"], monthly_df["videos"], color=accent, linewidth=2.2)
-    trend_ax.fill_between(monthly_df["Published Date"], monthly_df["videos"], color=accent, alpha=0.18)
-    trend_ax.set_title("Upload Trend - Videos per Month", loc="left", fontsize=9)
-    trend_ax.grid(color="#2a1745", alpha=0.7, linewidth=0.5)
+    trend_ax.plot(monthly_df["Published Date"], monthly_df["videos"], color=accent_cyan, linewidth=2.6, marker="o", markersize=3.2)
+    trend_ax.fill_between(monthly_df["Published Date"], monthly_df["videos"], color=accent_cyan, alpha=0.15)
     trend_ax.set_xlabel("")
     trend_ax.set_ylabel("")
+    trend_ax.set_title("")
 
-    donut_ax = fig.add_subplot(charts_grid[1])
-    donut_ax.set_facecolor(page_bg)
+    mix_panel = card_axes(fig, [0.64, 0.42, 0.31, 0.22], facecolor=card_bg_alt)
+    add_section_title(mix_panel, "Engagement Mix", "Views, likes and comments share")
+    donut_ax = fig.add_axes([0.68, 0.465, 0.16, 0.13])
+    donut_ax.set_facecolor(card_bg_alt)
+    for spine in donut_ax.spines.values():
+        spine.set_visible(False)
     donut_ax.set_aspect("equal")
-    engagement_totals = [report_df["views"].sum(), report_df["likes"].sum(), report_df["comments"].sum()]
+    donut_values = [report_df["views"].sum(), report_df["likes"].sum(), report_df["comments"].sum()]
     donut_labels = ["Views", "Likes", "Comments"]
-    donut_colors = [accent_soft, accent, "#d78bff"]
-    wedges, _, autotexts = donut_ax.pie(
-        engagement_totals,
-        startangle=120,
+    donut_colors = [accent_soft, accent_cyan, accent_rose]
+    wedges, _ = donut_ax.pie(
+        donut_values,
         colors=donut_colors,
-        wedgeprops=dict(width=0.38, edgecolor=page_bg),
-        autopct=lambda pct: f"{pct:.1f}%" if pct >= 4 else "",
-        textprops=dict(color=text_primary, fontsize=8),
+        startangle=120,
+        wedgeprops=dict(width=0.38, edgecolor=card_bg_alt),
     )
-    for text in autotexts:
-        text.set_color(text_primary)
-        text.set_fontsize(7)
-    donut_ax.set_title("Engagement Breakdown", loc="left", color=text_primary, fontsize=9)
-    donut_ax.legend(wedges, donut_labels, loc="center left", bbox_to_anchor=(0.82, 0.5), frameon=False, labelcolor=text_muted, fontsize=7)
+    mix_panel.legend(wedges, donut_labels, loc="lower left", bbox_to_anchor=(0.03, 0.06), frameon=False, labelcolor=text_muted, fontsize=8)
 
-    bar_wrap = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[3])
-    bar_ax = fig.add_subplot(bar_wrap[0])
-    style_axes(bar_ax)
-    top_videos = report_df.nlargest(8, "views").sort_values("views")
-    bar_titles = [sanitize_pdf_text(title[:26] + ("..." if len(title) > 26 else "")) for title in top_videos["title"]]
-    bar_ax.barh(bar_titles, top_videos["views"], color=[accent if i < len(bar_titles) - 2 else accent_soft for i in range(len(bar_titles))])
-    bar_ax.set_title("TOP VIDEOS CHART", loc="left", fontsize=8.5, color=accent_soft, pad=10, fontweight="bold")
-    bar_ax.grid(axis="x", color="#2a1745", alpha=0.7, linewidth=0.5)
-    bar_ax.tick_params(axis="y", labelsize=7)
-    for idx, value in enumerate(top_videos["views"]):
-        bar_ax.text(value, idx, f" {format_compact_number(value)}", va="center", color=text_primary, fontsize=7)
+    insight_ax = card_axes(fig, [0.05, 0.25, 0.32, 0.13], facecolor=card_bg_alt)
+    add_section_title(insight_ax, "Quick Insights")
+    insight_ax.text(0.04, 0.60, f"Top video: {sanitize_pdf_text(top_video['title'][:36])}", color=text_primary, fontsize=8.2, transform=insight_ax.transAxes)
+    insight_ax.text(0.04, 0.40, f"Views on top video: {int(top_video['views']):,}", color=text_muted, fontsize=8.2, transform=insight_ax.transAxes)
+    insight_ax.text(0.04, 0.22, f"Best upload day: {sanitize_pdf_text(best_day)}", color=text_muted, fontsize=8.2, transform=insight_ax.transAxes)
 
-    table_ax = fig.add_subplot(outer[4])
-    table_ax.set_facecolor(page_bg)
-    table_ax.axis("off")
-    table_ax.text(0.0, 1.08, "TOP 10 VIDEOS - DETAILED TABLE", fontsize=8.2, color=accent_soft, fontweight="bold", transform=table_ax.transAxes)
-    table_df = report_df.nlargest(4, "views")[["title", "views", "likes", "comments"]].copy()
-    table_df.insert(0, "#", range(1, len(table_df) + 1))
-    table_df["title"] = table_df["title"].apply(lambda value: sanitize_pdf_text(value[:48] + ("..." if len(value) > 48 else "")))
-    table_df["views"] = table_df["views"].map(lambda value: f"{int(value):,}")
-    table_df["likes"] = table_df["likes"].map(lambda value: f"{int(value):,}")
-    table_df["comments"] = table_df["comments"].map(lambda value: f"{int(value):,}")
-    table = table_ax.table(
-        cellText=table_df.values,
-        colLabels=["", "Title", "Views", "Likes", "Comments"],
+    ranking_panel = card_axes(fig, [0.40, 0.25, 0.55, 0.13])
+    add_section_title(ranking_panel, "Top Videos by Views")
+    rank_ax = fig.add_axes([0.44, 0.275, 0.47, 0.08])
+    style_axes(rank_ax)
+    rank_titles = [sanitize_pdf_text(title[:30] + ("..." if len(title) > 30 else "")) for title in top_videos["title"]]
+    rank_ax.barh(rank_titles, top_videos["views"], color=[accent, accent, accent_soft, accent_soft, accent_cyan, accent_cyan, "#67e8f9", "#c4b5fd"])
+    rank_ax.tick_params(axis="y", labelsize=7)
+    rank_ax.tick_params(axis="x", labelsize=7)
+    rank_ax.set_xlabel("")
+    rank_ax.set_ylabel("")
+    rank_ax.set_title("")
+
+    snapshot_panel = card_axes(fig, [0.05, 0.06, 0.90, 0.15])
+    add_section_title(snapshot_panel, "Executive Snapshot", "High-performing videos in the current filtered result")
+    snapshot_df = report_df.nlargest(5, "views")[["title", "views", "likes", "comments"]].copy()
+    snapshot_df.insert(0, "#", range(1, len(snapshot_df) + 1))
+    snapshot_df["title"] = snapshot_df["title"].apply(lambda value: sanitize_pdf_text(value[:52] + ("..." if len(value) > 52 else "")))
+    snapshot_df["views"] = snapshot_df["views"].map(lambda value: f"{int(value):,}")
+    snapshot_df["likes"] = snapshot_df["likes"].map(lambda value: f"{int(value):,}")
+    snapshot_df["comments"] = snapshot_df["comments"].map(lambda value: f"{int(value):,}")
+    snapshot_table_ax = fig.add_axes([0.07, 0.075, 0.86, 0.10])
+    snapshot_table_ax.axis("off")
+    snapshot_table = snapshot_table_ax.table(
+        cellText=snapshot_df.values,
+        colLabels=["#", "Title", "Views", "Likes", "Comments"],
         cellLoc="left",
         colLoc="left",
-        loc="upper left",
-        bbox=[0, 0.02, 1, 0.9],
-        colWidths=[0.04, 0.50, 0.12, 0.12, 0.12],
+        loc="center",
+        bbox=[0, 0, 1, 1],
+        colWidths=[0.05, 0.52, 0.14, 0.14, 0.15],
     )
-    table.auto_set_font_size(False)
-    table.set_fontsize(7)
-    for (row, col), cell in table.get_celld().items():
-        cell.set_edgecolor("#3b245d")
+    snapshot_table.auto_set_font_size(False)
+    snapshot_table.set_fontsize(7.2)
+    for (row, col), cell in snapshot_table.get_celld().items():
         cell.set_linewidth(0.6)
+        cell.set_edgecolor("#3d2a6e")
         if row == 0:
             cell.set_facecolor(accent)
             cell.get_text().set_color(text_primary)
             cell.get_text().set_fontweight("bold")
         else:
-            cell.set_facecolor(page_bg)
+            cell.set_facecolor(card_bg if row % 2 else card_bg_alt)
             cell.get_text().set_color(text_primary)
 
-    add_page_footer(fig, 1)
+    add_page_number(fig, 1)
     append_pdf_page(fig)
 
-    page_two = report_df.nlargest(20, "views")[["title", "views", "likes", "comments", "Published Date"]].copy()
-    page_two["Duration"] = "--"
-    page_two["title"] = page_two["title"].apply(lambda value: "\n".join(textwrap.wrap(sanitize_pdf_text(value), 42))[:110])
+    fig2 = new_page()
+
+    page2_header = card_axes(fig2, [0.05, 0.86, 0.90, 0.08], facecolor=card_bg)
+    page2_header.text(0.03, 0.55, "Detailed Video Performance", color=text_primary, fontsize=18, fontweight="bold", transform=page2_header.transAxes)
+    page2_header.text(0.03, 0.20, "Full ranking table for the current filtered dataset", color=text_muted, fontsize=8.5, transform=page2_header.transAxes)
+    page2_header.text(0.97, 0.38, sanitize_pdf_text(channel_details["title"]), color=accent_cyan, fontsize=10, fontweight="bold", ha="right", transform=page2_header.transAxes)
+
+    page2_stats = card_axes(fig2, [0.05, 0.76, 0.90, 0.07], facecolor=card_bg_alt)
+    page2_stats.text(0.03, 0.50, f"Best upload day: {sanitize_pdf_text(best_day)}", color=text_primary, fontsize=9, va="center", transform=page2_stats.transAxes)
+    page2_stats.text(0.36, 0.50, f"Top video views: {int(top_video['views']):,}", color=text_primary, fontsize=9, va="center", transform=page2_stats.transAxes)
+    page2_stats.text(0.69, 0.50, f"Average engagement: {report_df['engagement'].mean() * 100:.2f}%", color=text_primary, fontsize=9, va="center", transform=page2_stats.transAxes)
+
+    page_two = report_df.nlargest(20, "views")[["title", "Published Date", "views", "likes", "comments", "engagement"]].copy()
+    page_two.insert(0, "#", range(1, len(page_two) + 1))
+    page_two["title"] = page_two["title"].apply(lambda value: "\n".join(textwrap.wrap(sanitize_pdf_text(value), 36))[:120])
+    page_two["Published Date"] = page_two["Published Date"].dt.strftime("%Y-%m-%d")
     page_two["views"] = page_two["views"].map(lambda value: f"{int(value):,}")
     page_two["likes"] = page_two["likes"].map(lambda value: f"{int(value):,}")
     page_two["comments"] = page_two["comments"].map(lambda value: f"{int(value):,}")
-    page_two["Published Date"] = page_two["Published Date"].dt.strftime("%Y-%m-%d")
-    page_two.insert(0, "#", range(1, len(page_two) + 1))
+    page_two["engagement"] = page_two["engagement"].map(lambda value: f"{value * 100:.2f}%")
 
-    fig2 = plt.figure(figsize=(8.27, 11.69), facecolor="white")
-    ax2 = fig2.add_axes([0.04, 0.06, 0.92, 0.9])
-    ax2.set_facecolor(page_bg)
-    ax2.axis("off")
-    table2 = ax2.table(
-        cellText=page_two[["#", "title", "views", "likes", "comments", "Duration"]].values,
-        colLabels=["#", "Title", "Views", "Likes", "Comments", "Duration"],
+    table_wrap = card_axes(fig2, [0.05, 0.08, 0.90, 0.64], facecolor=card_bg)
+    add_section_title(table_wrap, "Ranking Table", "Top 20 videos ordered by views")
+    table2_ax = fig2.add_axes([0.07, 0.11, 0.86, 0.56])
+    table2_ax.axis("off")
+    table2 = table2_ax.table(
+        cellText=page_two.values,
+        colLabels=["#", "Title", "Published", "Views", "Likes", "Comments", "Engagement"],
         cellLoc="left",
         colLoc="left",
-        loc="upper left",
-        bbox=[0, 0.06, 1, 0.9],
-        colWidths=[0.04, 0.46, 0.14, 0.12, 0.12, 0.12],
+        loc="center",
+        bbox=[0, 0, 1, 1],
+        colWidths=[0.04, 0.38, 0.12, 0.12, 0.11, 0.11, 0.12],
     )
     table2.auto_set_font_size(False)
-    table2.set_fontsize(7)
+    table2.set_fontsize(7.0)
     for (row, col), cell in table2.get_celld().items():
-        cell.set_edgecolor("#3b245d")
-        cell.set_linewidth(0.5)
+        cell.set_linewidth(0.45)
+        cell.set_edgecolor("#3d2a6e")
         if row == 0:
             cell.set_facecolor(accent)
             cell.get_text().set_color(text_primary)
             cell.get_text().set_fontweight("bold")
         else:
-            cell.set_facecolor(page_bg)
+            cell.set_facecolor(card_bg if row % 2 else card_bg_alt)
             cell.get_text().set_color(text_primary)
-            if col == 1:
-                cell.PAD = 0.02
-    add_page_footer(fig2, 2)
+            if col == 6:
+                cell.get_text().set_color("#f43f5e")
+
+    add_page_number(fig2, 2)
     append_pdf_page(fig2)
 
     page_images[0].save(pdf_buffer, format="PDF", resolution=100.0, save_all=True, append_images=page_images[1:])
@@ -491,7 +559,7 @@ if mode == "Single Channel Analysis":
             st.markdown(f"### 🏆 Elite Performance Score: {score}/100")
             st.progress(score / 100)
 
-            st.markdown("<br><hr>", unsafe_allow_html=True)
+            gradient_divider()
 
             # FILTERS
             st.sidebar.subheader("🎯 Refine Data")
@@ -515,10 +583,9 @@ if mode == "Single Channel Analysis":
                     st.markdown("**Views Growth Pattern**")
                     filtered_df_sorted = filtered_df.sort_values(by="Published Date")
                     
-                    fig_trend = px.line(filtered_df_sorted, x="Published Date", y="views", template=CHART_THEME, color_discrete_sequence=['#00F2FE'], markers=True)
+                    fig_trend = px.line(filtered_df_sorted, x="Published Date", y="views", template=CHART_THEME, color_discrete_sequence=['#a78bfa'], markers=True)
                     apply_transparent_bg(fig_trend)
-                    # Smoothed spline curve with filled area underneath
-                    fig_trend.update_traces(line_shape='spline', fill='tozeroy', fillcolor='rgba(0, 242, 254, 0.1)', line=dict(width=3))
+                    fig_trend.update_traces(line_shape='spline', fill='tozeroy', fillcolor='rgba(124, 58, 237, 0.12)', line=dict(width=3.5))
                     fig_trend.update_yaxes(title_text="Total Views")
                     st.plotly_chart(fig_trend, use_container_width=True)
 
@@ -527,7 +594,7 @@ if mode == "Single Channel Analysis":
                     fig_heat = px.density_heatmap(
                         filtered_df, x="views", y="engagement", 
                         nbinsx=15, nbinsy=15, 
-                        template=CHART_THEME, color_continuous_scale="Inferno"
+                        template=CHART_THEME, color_continuous_scale="Purples"
                     )
                     apply_transparent_bg(fig_heat)
                     fig_heat.update_layout(xaxis_title="Views", yaxis_title="Engagement Rate")
@@ -539,7 +606,7 @@ if mode == "Single Channel Analysis":
                     # Shorten titles to prevent chart squashing
                     top10['Short Title'] = top10['title'].apply(lambda x: x[:35] + '...' if len(x) > 35 else x)
                     
-                    fig_bar = px.bar(top10, x="views", y="Short Title", orientation='h', text_auto='.2s', template=CHART_THEME, color_discrete_sequence=['#4FACFE'])
+                    fig_bar = px.bar(top10, x="views", y="Short Title", orientation='h', text_auto='.2s', template=CHART_THEME, color_discrete_sequence=['#7c3aed'])
                     apply_transparent_bg(fig_bar)
                     fig_bar.update_layout(yaxis={'categoryorder':'total ascending'}, yaxis_title="")
                     st.plotly_chart(fig_bar, use_container_width=True)
@@ -553,15 +620,14 @@ if mode == "Single Channel Analysis":
                     fig_scatter = px.scatter(
                         filtered_df, x="views", y="engagement", size="likes_clamped", 
                         hover_data=["title", "likes", "comments"], color="engagement", 
-                        template=CHART_THEME, color_continuous_scale="Sunsetdark"
+                        template=CHART_THEME, color_continuous_scale="Plasma"
                     )
                     apply_transparent_bg(fig_scatter)
                     fig_scatter.update_layout(xaxis_title="Views", yaxis_title="Engagement Rate")
-                    # Increase marker border for visibility
-                    fig_scatter.update_traces(marker=dict(line=dict(width=1, color='DarkSlateGrey')))
+                    fig_scatter.update_traces(marker=dict(line=dict(width=1.2, color='rgba(124,58,237,0.5)')))
                     st.plotly_chart(fig_scatter, use_container_width=True)
 
-                st.markdown("<hr>", unsafe_allow_html=True)
+                gradient_divider()
                 
                 # Smart Analytics
                 st.header("🧠 Smart Analytics")
@@ -604,7 +670,7 @@ if mode == "Single Channel Analysis":
                     st.info(f"Avg Monthly Uploads: **{avg_monthly_upload:.1f}**", icon="📅")
                     st.info(f"Est. Next Month Views: **{est_next_month_views:,.0f}**", icon="🚀")
                 
-                st.markdown("<hr>", unsafe_allow_html=True)
+                gradient_divider()
 
                 # Video Data Table
                 st.subheader("📑 Video Database")
@@ -643,11 +709,20 @@ if mode == "Single Channel Analysis":
                     }
                 )
                 
-                st.markdown("<hr>", unsafe_allow_html=True)
+                gradient_divider()
 
                 # Download Feature
                 st.subheader("💡 Export Intelligence")
-                csv = filtered_df.to_csv(index=False).encode('utf-8')
+                export_df = filtered_df[['title', 'Published Date', 'views', 'likes', 'comments', 'engagement']].copy()
+                export_df.rename(columns={
+                    'title': 'Video Title',
+                    'views': 'Views',
+                    'likes': 'Likes',
+                    'comments': 'Comments',
+                    'engagement': 'Engagement Rate (%)'
+                }, inplace=True)
+                export_df['Engagement Rate (%)'] = (export_df['Engagement Rate (%)'] * 100).round(4)
+                csv = export_df.to_csv(index=False).encode('utf-8')
                 pdf_bytes = build_pdf_report(channel_details, filtered_df)
                 csv_file_name = safe_report_filename(channel_details["title"], "analytics.csv")
                 pdf_file_name = safe_report_filename(channel_details["title"], "insight_report.pdf")
@@ -728,7 +803,7 @@ elif mode == "Compare Channels":
         render_kpis(colA, ch1_details, df1)
         render_kpis(colB, ch2_details, df2)
         
-        st.markdown("<br><hr>", unsafe_allow_html=True)
+        gradient_divider()
         st.subheader("📊 Tactical Analysis")
         if not df1.empty and not df2.empty:
             df1['Channel'] = ch1_details['title']
@@ -740,7 +815,7 @@ elif mode == "Compare Channels":
                 combined_df, x="Channel", y="views", 
                 color="Channel", 
                 template=CHART_THEME,
-                color_discrete_sequence=['#FF416C', '#8E2DE2']
+                color_discrete_sequence=['#7c3aed', '#f43f5e']
             )
             apply_transparent_bg(fig_compare_views)
             st.plotly_chart(fig_compare_views, use_container_width=True)
