@@ -3,7 +3,15 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import datetime as dt
+import io
+import re
+import textwrap
 import requests
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
+from PIL import Image
 from streamlit_lottie import st_lottie
 from main import get_channel_data
 
@@ -176,6 +184,251 @@ def apply_transparent_bg(fig):
         font_family="Outfit"
     )
     return fig
+
+
+def sanitize_pdf_text(value):
+    text = "" if value is None else str(value)
+    return re.sub(r"[^\x00-\x7F]+", "", text)
+
+
+def format_compact_number(value):
+    abs_value = abs(float(value))
+    if abs_value >= 1_000_000_000:
+        return f"{value / 1_000_000_000:.2f}B"
+    if abs_value >= 1_000_000:
+        return f"{value / 1_000_000:.2f}M"
+    if abs_value >= 1_000:
+        return f"{value / 1_000:.1f}K"
+    return f"{value:.0f}"
+
+
+def safe_report_filename(title, suffix):
+    base_name = sanitize_pdf_text(title).strip().replace(" ", "_")
+    base_name = re.sub(r"[^A-Za-z0-9._-]+", "_", base_name)
+    base_name = re.sub(r"_+", "_", base_name).strip("._")
+    if not base_name:
+        base_name = "youtube_report"
+    return f"{base_name}_{suffix}"
+
+
+def build_pdf_report(channel_details, filtered_df):
+    pdf_buffer = io.BytesIO()
+    report_df = filtered_df.copy().sort_values("Published Date")
+    page_images = []
+    generated_at = dt.datetime.now()
+    report_start = report_df["Published Date"].min().strftime("%Y-%m-%d")
+    report_end = report_df["Published Date"].max().strftime("%Y-%m-%d")
+    page_bg = "#120a24"
+    accent = "#8b3dff"
+    accent_soft = "#b58cff"
+    text_primary = "#f7f3ff"
+    text_muted = "#b7a6df"
+    highlight = "#ff8fab"
+
+    def style_axes(ax):
+        ax.set_facecolor(page_bg)
+        for spine in ax.spines.values():
+            spine.set_color("#3b245d")
+        ax.tick_params(colors=text_muted, labelsize=8)
+        ax.yaxis.label.set_color(text_muted)
+        ax.xaxis.label.set_color(text_muted)
+        ax.title.set_color(text_primary)
+
+    def add_page_footer(fig, page_no):
+        footer = (
+            f"YouTube Insight Hub - Report for {sanitize_pdf_text(channel_details['title'])} "
+            f"- Period {report_start} to {report_end} - Generated {generated_at:%d %b %Y %H:%M} "
+            f"- Page {page_no}"
+        )
+        fig.text(0.5, 0.02, footer, ha="center", va="bottom", fontsize=8, color=accent_soft)
+        fig.add_artist(
+            plt.Line2D([0.05, 0.95], [0.045, 0.045], transform=fig.transFigure, color=accent_soft, linewidth=1.2)
+        )
+
+    def append_pdf_page(fig):
+        image_buffer = io.BytesIO()
+        fig.savefig(image_buffer, format="png", dpi=200, facecolor=fig.get_facecolor())
+        image_buffer.seek(0)
+        page_images.append(Image.open(image_buffer).convert("RGB").copy())
+        image_buffer.close()
+        plt.close(fig)
+
+    fig = plt.figure(figsize=(8.27, 11.69), facecolor="white")
+    outer = gridspec.GridSpec(
+        5,
+        1,
+        height_ratios=[1.0, 1.0, 2.2, 2.4, 1.7],
+        hspace=0.35,
+        top=0.96,
+        bottom=0.08,
+        left=0.05,
+        right=0.97,
+    )
+
+    header_ax = fig.add_subplot(outer[0])
+    header_ax.set_facecolor(page_bg)
+    header_ax.set_xticks([])
+    header_ax.set_yticks([])
+    for spine in header_ax.spines.values():
+        spine.set_visible(False)
+    header_ax.text(0.02, 0.62, "YouTube Insight Hub", color=text_primary, fontsize=19, fontweight="bold", transform=header_ax.transAxes)
+    header_ax.text(0.98, 0.68, sanitize_pdf_text(channel_details["title"]), color=text_primary, fontsize=10, fontweight="bold", ha="right", transform=header_ax.transAxes)
+    header_ax.text(0.98, 0.42, f"Channel ID: {sanitize_pdf_text(st.session_state.get('single_channel_id', ''))}", color=text_muted, fontsize=8, ha="right", transform=header_ax.transAxes)
+    header_ax.text(0.98, 0.18, f"{format_compact_number(int(channel_details['subscribers']))} subscribers", color=text_muted, fontsize=9, ha="right", transform=header_ax.transAxes)
+
+    meta_ax = fig.add_subplot(outer[1])
+    meta_ax.axis("off")
+    meta_ax.text(0.01, 0.72, f"Report period: {report_start} to {report_end}", fontsize=8.5, color="#5e4aa1", fontweight="bold")
+    meta_ax.text(0.99, 0.72, f"Generated {generated_at:%d %b %Y, %H:%M}", fontsize=8.5, color="#5e4aa1", ha="right")
+    meta_ax.text(0.01, 0.18, "CHANNEL METRICS", fontsize=8.2, color=accent_soft, fontweight="bold")
+
+    metrics_ax = fig.add_subplot(outer[1], frame_on=False)
+    metrics_ax.set_xlim(0, 1)
+    metrics_ax.set_ylim(0, 1)
+    metrics_ax.axis("off")
+    metric_labels = [
+        ("TOTAL VIEWS", format_compact_number(int(report_df["views"].sum()))),
+        ("TOTAL VIDEOS", f"{len(report_df)}"),
+        ("TOTAL LIKES", format_compact_number(int(report_df["likes"].sum()))),
+        ("TOTAL COMMENTS", format_compact_number(int(report_df["comments"].sum()))),
+        ("ENGAGEMENT", f"{report_df['engagement'].mean() * 100:.1f}%"),
+        ("AVG VIEWS/VID", format_compact_number(report_df["views"].mean())),
+    ]
+    card_y = 0.05
+    card_h = 0.55
+    card_w = 0.155
+    start_x = 0.01
+    gap = 0.01
+    for index, (label, value) in enumerate(metric_labels):
+        x = start_x + index * (card_w + gap)
+        metrics_ax.add_patch(plt.Rectangle((x, card_y), card_w, card_h, facecolor=page_bg, edgecolor=accent_soft, linewidth=0.8))
+        metrics_ax.text(x + 0.02, card_y + 0.38, label, color="#7f73aa", fontsize=6.5, fontweight="bold")
+        metrics_ax.text(x + 0.02, card_y + 0.09, value, color=highlight if label == "ENGAGEMENT" else text_primary, fontsize=15, fontweight="bold")
+
+    charts_title_ax = fig.add_subplot(outer[2], frame_on=False)
+    charts_title_ax.axis("off")
+    charts_title_ax.text(0.01, 1.05, "ANALYTICS CHARTS", fontsize=8.2, color=accent_soft, fontweight="bold")
+
+    charts_grid = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=outer[2], wspace=0.08, width_ratios=[1.35, 1])
+    trend_ax = fig.add_subplot(charts_grid[0])
+    style_axes(trend_ax)
+    monthly_df = report_df.resample("ME", on="Published Date").size().reset_index(name="videos")
+    trend_ax.plot(monthly_df["Published Date"], monthly_df["videos"], color=accent, linewidth=2.2)
+    trend_ax.fill_between(monthly_df["Published Date"], monthly_df["videos"], color=accent, alpha=0.18)
+    trend_ax.set_title("Upload Trend - Videos per Month", loc="left", fontsize=9)
+    trend_ax.grid(color="#2a1745", alpha=0.7, linewidth=0.5)
+    trend_ax.set_xlabel("")
+    trend_ax.set_ylabel("")
+
+    donut_ax = fig.add_subplot(charts_grid[1])
+    donut_ax.set_facecolor(page_bg)
+    donut_ax.set_aspect("equal")
+    engagement_totals = [report_df["views"].sum(), report_df["likes"].sum(), report_df["comments"].sum()]
+    donut_labels = ["Views", "Likes", "Comments"]
+    donut_colors = [accent_soft, accent, "#d78bff"]
+    wedges, _, autotexts = donut_ax.pie(
+        engagement_totals,
+        startangle=120,
+        colors=donut_colors,
+        wedgeprops=dict(width=0.38, edgecolor=page_bg),
+        autopct=lambda pct: f"{pct:.1f}%" if pct >= 4 else "",
+        textprops=dict(color=text_primary, fontsize=8),
+    )
+    for text in autotexts:
+        text.set_color(text_primary)
+        text.set_fontsize(7)
+    donut_ax.set_title("Engagement Breakdown", loc="left", color=text_primary, fontsize=9)
+    donut_ax.legend(wedges, donut_labels, loc="center left", bbox_to_anchor=(0.82, 0.5), frameon=False, labelcolor=text_muted, fontsize=7)
+
+    bar_wrap = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=outer[3])
+    bar_ax = fig.add_subplot(bar_wrap[0])
+    style_axes(bar_ax)
+    top_videos = report_df.nlargest(8, "views").sort_values("views")
+    bar_titles = [sanitize_pdf_text(title[:26] + ("..." if len(title) > 26 else "")) for title in top_videos["title"]]
+    bar_ax.barh(bar_titles, top_videos["views"], color=[accent if i < len(bar_titles) - 2 else accent_soft for i in range(len(bar_titles))])
+    bar_ax.set_title("TOP VIDEOS CHART", loc="left", fontsize=8.5, color=accent_soft, pad=10, fontweight="bold")
+    bar_ax.grid(axis="x", color="#2a1745", alpha=0.7, linewidth=0.5)
+    bar_ax.tick_params(axis="y", labelsize=7)
+    for idx, value in enumerate(top_videos["views"]):
+        bar_ax.text(value, idx, f" {format_compact_number(value)}", va="center", color=text_primary, fontsize=7)
+
+    table_ax = fig.add_subplot(outer[4])
+    table_ax.set_facecolor(page_bg)
+    table_ax.axis("off")
+    table_ax.text(0.0, 1.08, "TOP 10 VIDEOS - DETAILED TABLE", fontsize=8.2, color=accent_soft, fontweight="bold", transform=table_ax.transAxes)
+    table_df = report_df.nlargest(4, "views")[["title", "views", "likes", "comments"]].copy()
+    table_df.insert(0, "#", range(1, len(table_df) + 1))
+    table_df["title"] = table_df["title"].apply(lambda value: sanitize_pdf_text(value[:48] + ("..." if len(value) > 48 else "")))
+    table_df["views"] = table_df["views"].map(lambda value: f"{int(value):,}")
+    table_df["likes"] = table_df["likes"].map(lambda value: f"{int(value):,}")
+    table_df["comments"] = table_df["comments"].map(lambda value: f"{int(value):,}")
+    table = table_ax.table(
+        cellText=table_df.values,
+        colLabels=["", "Title", "Views", "Likes", "Comments"],
+        cellLoc="left",
+        colLoc="left",
+        loc="upper left",
+        bbox=[0, 0.02, 1, 0.9],
+        colWidths=[0.04, 0.50, 0.12, 0.12, 0.12],
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(7)
+    for (row, col), cell in table.get_celld().items():
+        cell.set_edgecolor("#3b245d")
+        cell.set_linewidth(0.6)
+        if row == 0:
+            cell.set_facecolor(accent)
+            cell.get_text().set_color(text_primary)
+            cell.get_text().set_fontweight("bold")
+        else:
+            cell.set_facecolor(page_bg)
+            cell.get_text().set_color(text_primary)
+
+    add_page_footer(fig, 1)
+    append_pdf_page(fig)
+
+    page_two = report_df.nlargest(20, "views")[["title", "views", "likes", "comments", "Published Date"]].copy()
+    page_two["Duration"] = "--"
+    page_two["title"] = page_two["title"].apply(lambda value: "\n".join(textwrap.wrap(sanitize_pdf_text(value), 42))[:110])
+    page_two["views"] = page_two["views"].map(lambda value: f"{int(value):,}")
+    page_two["likes"] = page_two["likes"].map(lambda value: f"{int(value):,}")
+    page_two["comments"] = page_two["comments"].map(lambda value: f"{int(value):,}")
+    page_two["Published Date"] = page_two["Published Date"].dt.strftime("%Y-%m-%d")
+    page_two.insert(0, "#", range(1, len(page_two) + 1))
+
+    fig2 = plt.figure(figsize=(8.27, 11.69), facecolor="white")
+    ax2 = fig2.add_axes([0.04, 0.06, 0.92, 0.9])
+    ax2.set_facecolor(page_bg)
+    ax2.axis("off")
+    table2 = ax2.table(
+        cellText=page_two[["#", "title", "views", "likes", "comments", "Duration"]].values,
+        colLabels=["#", "Title", "Views", "Likes", "Comments", "Duration"],
+        cellLoc="left",
+        colLoc="left",
+        loc="upper left",
+        bbox=[0, 0.06, 1, 0.9],
+        colWidths=[0.04, 0.46, 0.14, 0.12, 0.12, 0.12],
+    )
+    table2.auto_set_font_size(False)
+    table2.set_fontsize(7)
+    for (row, col), cell in table2.get_celld().items():
+        cell.set_edgecolor("#3b245d")
+        cell.set_linewidth(0.5)
+        if row == 0:
+            cell.set_facecolor(accent)
+            cell.get_text().set_color(text_primary)
+            cell.get_text().set_fontweight("bold")
+        else:
+            cell.set_facecolor(page_bg)
+            cell.get_text().set_color(text_primary)
+            if col == 1:
+                cell.PAD = 0.02
+    add_page_footer(fig2, 2)
+    append_pdf_page(fig2)
+
+    page_images[0].save(pdf_buffer, format="PDF", resolution=100.0, save_all=True, append_images=page_images[1:])
+    pdf_buffer.seek(0)
+    return pdf_buffer.getvalue()
 
 
 # --- SIDEBAR & HEADER ---
@@ -395,12 +648,26 @@ if mode == "Single Channel Analysis":
                 # Download Feature
                 st.subheader("💡 Export Intelligence")
                 csv = filtered_df.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📥 Download Insight Matrix as CSV",
-                    data=csv,
-                    file_name=f"{channel_details['title']}_analytics.csv",
-                    mime="text/csv",
-                )
+                pdf_bytes = build_pdf_report(channel_details, filtered_df)
+                csv_file_name = safe_report_filename(channel_details["title"], "analytics.csv")
+                pdf_file_name = safe_report_filename(channel_details["title"], "insight_report.pdf")
+                export_col1, export_col2 = st.columns(2)
+                with export_col1:
+                    st.download_button(
+                        label="📥 Download Insight Matrix as CSV",
+                        data=csv,
+                        file_name=csv_file_name,
+                        mime="text/csv",
+                        use_container_width=True,
+                    )
+                with export_col2:
+                    st.download_button(
+                        label="📄 Download Insight Report as PDF",
+                        data=pdf_bytes,
+                        file_name=pdf_file_name,
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
 
 
 elif mode == "Compare Channels":
